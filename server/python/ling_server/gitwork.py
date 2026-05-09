@@ -3,10 +3,14 @@
 只覆盖 MVP-1 需要的能力：
 - ensure_repo: 不存在则 clone；存在则 fetch
 - pull_rebase: 同步远端
-- write_back: 写回单个或多个文件 + commit + push（自动重试一次 pull --rebase）
+- write_back: 写回单个或多个文件 + commit + push（含重试 + 冲突时自动 pull --rebase）
 - get_head_sha: 取 HEAD SHA
 
 无 libgit2 依赖；要求宿主机有 `git` 可执行文件。
+
+针对 Windows + GitHub 偶发 SSL/TLS schannel handshake 失败，所有"网络型"
+git 命令都会做有限重试。也可以通过环境变量 `LING_GIT_SSL_BACKEND=openssl`
+强制使用 OpenSSL 后端。
 """
 
 from __future__ import annotations
@@ -14,17 +18,50 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, List, Optional, Sequence
 from urllib.parse import urlparse, urlunparse
 
 
 log = logging.getLogger(__name__)
 
 
+# 命中其中任何片段，则视为可重试的瞬时网络/SSL 错误
+_RETRYABLE_ERROR_HINTS = (
+    "schannel",
+    "ssl",
+    "tls",
+    "Could not resolve host",
+    "Failed to connect",
+    "Connection was reset",
+    "Connection timed out",
+    "fatal: unable to access",
+    "EOF",
+    "RPC failed",
+    "early EOF",
+)
+
+
 class GitError(RuntimeError):
     pass
+
+
+def _is_retryable(stderr: str) -> bool:
+    s = (stderr or "").lower()
+    return any(hint.lower() in s for hint in _RETRYABLE_ERROR_HINTS)
+
+
+def _http_extra_config() -> List[str]:
+    extra: List[str] = []
+    backend = os.environ.get("LING_GIT_SSL_BACKEND", "").strip().lower()
+    if backend in {"openssl", "schannel"}:
+        extra += ["-c", f"http.sslBackend={backend}"]
+    # HTTP/1.1 在某些公司网络/弱网络下比 HTTP/2 更稳
+    if os.environ.get("LING_GIT_HTTP_VERSION", "").upper() == "HTTP/1.1":
+        extra += ["-c", "http.version=HTTP/1.1"]
+    return extra
 
 
 @dataclass
@@ -54,6 +91,32 @@ def _run(cmd: Sequence[str], cwd: Optional[Path] = None, env: Optional[dict] = N
             f"command failed: {' '.join(cmd)}\nstdout={proc.stdout}\nstderr={proc.stderr}"
         )
     return proc
+
+
+def _run_net(args: Sequence[str], cwd: Optional[Path] = None, env: Optional[dict] = None,
+             max_retries: int = 4, base_delay: float = 1.5) -> subprocess.CompletedProcess:
+    """跑一条会联网的 git 命令；遇到瞬时 SSL/网络错误指数退避重试。"""
+    cmd = ["git", *_http_extra_config(), *args]
+    last: Optional[subprocess.CompletedProcess] = None
+    for attempt in range(max_retries):
+        proc = _run(cmd, cwd=cwd, env=env, check=False)
+        if proc.returncode == 0:
+            return proc
+        if not _is_retryable(proc.stderr):
+            raise GitError(
+                f"command failed: {' '.join(cmd)}\nstdout={proc.stdout}\nstderr={proc.stderr}"
+            )
+        last = proc
+        delay = base_delay * (2 ** attempt)
+        log.warning(
+            "transient network error (attempt %d/%d, sleep %.1fs): %s",
+            attempt + 1, max_retries, delay, (proc.stderr or "").strip().splitlines()[-1:],
+        )
+        time.sleep(delay)
+    assert last is not None
+    raise GitError(
+        f"command failed after {max_retries} retries: {' '.join(cmd)}\nstderr={last.stderr}"
+    )
 
 
 def _embed_token(repo_url: str, token: Optional[str]) -> str:
@@ -97,17 +160,15 @@ def ensure_repo(cfg: GitConfig) -> None:
         _run(["git", "init", "-b", cfg.branch], cwd=cfg.workdir, env=env)
         _run(["git", "remote", "add", "origin", url], cwd=cfg.workdir, env=env)
         try:
-            _run(["git", "fetch", "origin", cfg.branch], cwd=cfg.workdir, env=env)
+            _run_net(["fetch", "origin", cfg.branch], cwd=cfg.workdir, env=env)
             _run(["git", "checkout", "-B", cfg.branch, f"origin/{cfg.branch}"], cwd=cfg.workdir, env=env)
         except GitError:
-            # 远端是空仓库；保留本地内容，等首次 commit 后 push
             log.info("remote branch not found, will push first commit later")
     else:
         cfg.workdir.mkdir(parents=True, exist_ok=True)
         try:
-            _run(["git", "clone", "--branch", cfg.branch, url, str(cfg.workdir)], env=env)
+            _run_net(["clone", "--branch", cfg.branch, url, str(cfg.workdir)], env=env)
         except GitError:
-            # 远端可能是空仓库（无任何 ref），fall back 到 init
             log.info("clone failed (likely empty remote); init locally")
             _run(["git", "init", "-b", cfg.branch], cwd=cfg.workdir, env=env)
             _run(["git", "remote", "add", "origin", url], cwd=cfg.workdir, env=env)
@@ -125,18 +186,17 @@ def fetch(cfg: GitConfig) -> None:
     token = os.environ.get(cfg.token_env)
     url = _embed_token(cfg.repo_url, token)
     env = _git_env(cfg)
-    # 临时把 origin 切到带 token 的 url，再切回；简化做法是直接 fetch <url>
-    _run(["git", "fetch", url, cfg.branch], cwd=cfg.workdir, env=env, check=False)
+    try:
+        _run_net(["fetch", url, cfg.branch], cwd=cfg.workdir, env=env)
+    except GitError as e:
+        log.warning("fetch failed: %s", e)
 
 
 def pull_rebase(cfg: GitConfig) -> None:
     token = os.environ.get(cfg.token_env)
     url = _embed_token(cfg.repo_url, token)
     env = _git_env(cfg)
-    proc = _run(["git", "pull", "--rebase", url, cfg.branch],
-                cwd=cfg.workdir, env=env, check=False)
-    if proc.returncode != 0:
-        raise GitError(f"pull --rebase failed: {proc.stderr}")
+    _run_net(["pull", "--rebase", url, cfg.branch], cwd=cfg.workdir, env=env)
 
 
 def write_back(cfg: GitConfig, files: Iterable[Path], message: str,
@@ -158,19 +218,13 @@ def write_back(cfg: GitConfig, files: Iterable[Path], message: str,
     new_sha = get_head_sha(cfg)
     if not do_push:
         return new_sha
-    # 尝试 push；冲突时先 pull --rebase 再 push
     token = os.environ.get(cfg.token_env)
     url = _embed_token(cfg.repo_url, token)
-    push = _run(["git", "push", url, f"HEAD:{cfg.branch}"],
-                cwd=cfg.workdir, env=env, check=False)
-    if push.returncode != 0:
-        log.warning("push failed, attempt pull --rebase then push: %s", push.stderr)
-        try:
-            pull_rebase(cfg)
-        except GitError as e:
-            raise GitError(f"push conflicted and pull --rebase failed: {e}")
-        push2 = _run(["git", "push", url, f"HEAD:{cfg.branch}"],
-                     cwd=cfg.workdir, env=env, check=False)
-        if push2.returncode != 0:
-            raise GitError(f"push failed after rebase: {push2.stderr}")
+    try:
+        _run_net(["push", url, f"HEAD:{cfg.branch}"], cwd=cfg.workdir, env=env)
+    except GitError as first_err:
+        log.warning("push failed even after retries; trying pull --rebase + push once: %s",
+                    first_err)
+        pull_rebase(cfg)
+        _run_net(["push", url, f"HEAD:{cfg.branch}"], cwd=cfg.workdir, env=env)
     return get_head_sha(cfg)
