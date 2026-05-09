@@ -42,6 +42,28 @@ CREATE TABLE IF NOT EXISTS workdir_state (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- 注册的客户端设备（用于 FCM 推送）
+CREATE TABLE IF NOT EXISTS devices (
+    device_id    TEXT PRIMARY KEY,
+    fcm_token    TEXT NOT NULL,
+    platform     TEXT NOT NULL DEFAULT 'android',
+    label        TEXT,
+    registered_at TEXT NOT NULL,
+    updated_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_devices_token ON devices(fcm_token);
+
+-- 推送审计日志
+CREATE TABLE IF NOT EXISTS push_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id    TEXT NOT NULL,
+    device_id   TEXT NOT NULL,
+    ok          INTEGER NOT NULL,
+    detail      TEXT,
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_push_log_event ON push_log(event_id);
 """
 
 

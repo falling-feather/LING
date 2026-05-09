@@ -50,6 +50,8 @@ python -m ling_server.cli -c config.yaml testrun   # 本地冒烟测试，不联
 ### 接口
 
 所有接口要求 header `X-API-Key: <token>`：
+
+任务与提醒：
 - `GET /healthz`
 - `GET /tasks` / `GET /tasks/<id>`
 - `POST /tasks/<id>/complete`（写回 tasks.yaml -> commit/push）
@@ -57,6 +59,22 @@ python -m ling_server.cli -c config.yaml testrun   # 本地冒烟测试，不联
 - `POST /tasks/<id>/reschedule` body：`{"deadline": "2026-05-12T10:00:00+08:00"}`
 - `GET /reminders/pending?limit=20`（投递后立即标记 delivered）
 - `POST /capture` body：`{"text": "..."}`（追加 inbox/capture.md -> commit/push）
+
+设备与推送（MVP-2，FCM）：
+- `POST /devices/register` body：`{"device_id": "...", "fcm_token": "...", "platform": "android", "label": "..."}`
+- `POST /devices/unregister` body：`{"device_id": "..."}`
+- `POST /devices/test_push` body 可选 `{"title": "...", "body": "..."}`：给所有已注册设备发一条测试通知
+
+> FCM 凭据缺失时所有推送会被记录为 `skipped`，App 端轮询 fallback 仍可拿到提醒。
+
+### 测试
+
+```bash
+python -m pip install pytest
+python -m pytest -q
+```
+
+`tests/` 覆盖 indexer / scheduler / api / yamlio / fcm 的主路径，跑一遍约 2~3 秒。
 
 ### C++ 迁移路径（一期不实现）
 

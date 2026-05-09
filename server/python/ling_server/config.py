@@ -56,6 +56,13 @@ class IndexConfig:
 
 
 @dataclass
+class FcmConfig:
+    enabled: bool = False
+    project_id: str = ""
+    service_account: str = ""  # service account JSON 文件路径
+
+
+@dataclass
 class OpsConfig:
     timezone: str = "Asia/Shanghai"
     default_remind_offsets_minutes: List[int] = field(
@@ -73,6 +80,7 @@ class AppConfig:
     scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
     index: IndexConfig = field(default_factory=IndexConfig)
     ops: OpsConfig = field(default_factory=OpsConfig)
+    fcm: FcmConfig = field(default_factory=FcmConfig)
     config_path: Optional[Path] = None
 
     @property
@@ -135,6 +143,13 @@ def load_config(server_config_path: str | os.PathLike[str]) -> AppConfig:
     ix = raw.get("index", {})
     db_raw = ix.get("db_path", str(cfg.index.db_path))
     cfg.index.db_path = (base / db_raw).resolve()
+
+    fc = raw.get("fcm", {})
+    cfg.fcm.enabled = bool(fc.get("enabled", cfg.fcm.enabled))
+    cfg.fcm.project_id = fc.get("project_id", cfg.fcm.project_id)
+    sa_raw = fc.get("service_account", cfg.fcm.service_account)
+    if sa_raw:
+        cfg.fcm.service_account = str((base / sa_raw).resolve())
 
     return cfg
 

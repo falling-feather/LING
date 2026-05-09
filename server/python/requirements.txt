@@ -2,3 +2,7 @@ PyYAML>=6.0
 Flask>=3.0
 APScheduler>=3.10
 python-dateutil>=2.9
+
+# FCM 推送（可选；无凭据时退化为本地 no-op）
+google-auth>=2.29
+requests>=2.32

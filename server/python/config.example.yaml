@@ -29,3 +29,13 @@ scheduler:
 # 索引数据库路径（可与 workdir 同机；删了能重建）
 index:
   db_path: "./workdir/index/db.sqlite"
+
+# FCM 推送（可选）。enabled=false 时 server 仍正常工作，App 端走轮询拿提醒。
+# 启用步骤：
+#   1) 在 Firebase Console -> Project settings -> Service accounts 生成 JSON
+#   2) service_account 写它的路径（可相对 config.yaml 所在目录）
+#   3) project_id 是你的 Firebase 项目 id
+fcm:
+  enabled: false
+  project_id: ""
+  service_account: ""

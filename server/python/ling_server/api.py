@@ -20,11 +20,12 @@ import logging
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from dateutil import parser as dtparser
 from flask import Flask, abort, g, jsonify, request
 
+from . import fcm as fcm_mod
 from . import gitwork, indexer, scheduler, yamlio
 from .config import AppConfig
 from .db import connect, init_db
@@ -44,10 +45,22 @@ def _git_cfg(cfg: AppConfig) -> gitwork.GitConfig:
     )
 
 
-def create_app(cfg: AppConfig, *, push_on_write: bool = True) -> Flask:
+def create_app(
+    cfg: AppConfig,
+    *,
+    push_on_write: bool = True,
+    fcm_sender: Optional["fcm_mod.FcmSender"] = None,
+) -> Flask:
     app = Flask("ling-server")
     app.config["LING_CFG"] = cfg
     app.config["LING_PUSH"] = push_on_write
+    if fcm_sender is None:
+        fcm_sender = fcm_mod.build_sender(
+            enabled=cfg.fcm.enabled,
+            project_id=cfg.fcm.project_id,
+            service_account=cfg.fcm.service_account,
+        )
+    app.config["LING_FCM"] = fcm_sender
     init_db(cfg.db_path)
 
     def require_key(fn):
@@ -190,8 +203,8 @@ def create_app(cfg: AppConfig, *, push_on_write: bool = True) -> Flask:
         except ValueError:
             limit = 20
         limit = max(1, min(limit, 200))
-        # 先尝试做一次 tick，让“即将到来”的提醒立刻可见
-        scheduler.tick(cfg)
+        # 先尝试做一次 tick，让"即将到来"的提醒立刻可见
+        scheduler.tick(cfg, sender=app.config["LING_FCM"])
         out = []
         with connect(cfg.db_path) as conn:
             rows = conn.execute(
@@ -240,5 +253,72 @@ def create_app(cfg: AppConfig, *, push_on_write: bool = True) -> Flask:
             except gitwork.GitError as e:
                 log.warning("git write_back capture failed: %s", e)
         return jsonify({"ok": True, "git_sha": sha, "appended": text})
+
+    @app.post("/devices/register")
+    @require_key
+    def register_device():
+        body = request.get_json(silent=True) or {}
+        device_id = (body.get("device_id") or "").strip()
+        fcm_token = (body.get("fcm_token") or "").strip()
+        platform = (body.get("platform") or "android").strip().lower()
+        label = body.get("label")
+        if not device_id or not fcm_token:
+            abort(400, description="device_id and fcm_token are required")
+        now_iso = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+        with connect(cfg.db_path) as conn:
+            conn.execute(
+                "INSERT INTO devices(device_id, fcm_token, platform, label, registered_at, updated_at) "
+                "VALUES(?,?,?,?,?,?) "
+                "ON CONFLICT(device_id) DO UPDATE SET fcm_token=excluded.fcm_token, "
+                "platform=excluded.platform, label=excluded.label, updated_at=excluded.updated_at",
+                (device_id, fcm_token, platform, label, now_iso, now_iso),
+            )
+        return jsonify({"ok": True, "device_id": device_id, "updated_at": now_iso})
+
+    @app.post("/devices/unregister")
+    @require_key
+    def unregister_device():
+        body = request.get_json(silent=True) or {}
+        device_id = (body.get("device_id") or "").strip()
+        if not device_id:
+            abort(400, description="device_id required")
+        with connect(cfg.db_path) as conn:
+            conn.execute("DELETE FROM devices WHERE device_id=?", (device_id,))
+        return jsonify({"ok": True})
+
+    @app.post("/devices/test_push")
+    @require_key
+    def test_push():
+        """给所有已注册设备发一条测试推送，并返回每台设备的结果。"""
+        body = request.get_json(silent=True) or {}
+        title = (body.get("title") or "LING 测试推送").strip()
+        text = (body.get("body") or "如果你看到这条通知，说明 FCM 链路通畅。").strip()
+        sender: fcm_mod.FcmSender = app.config["LING_FCM"]
+
+        results: list[dict[str, Any]] = []
+        now_iso = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+        with connect(cfg.db_path) as conn:
+            devices = conn.execute(
+                "SELECT device_id, fcm_token FROM devices"
+            ).fetchall()
+            if not devices:
+                return jsonify({"ok": True, "devices": 0, "results": []})
+            msgs = [
+                fcm_mod.FcmMessage(
+                    token=d["fcm_token"],
+                    title=title,
+                    body=text,
+                    data={"event_id": "test", "task_id": "test"},
+                )
+                for d in devices
+            ]
+            sent = sender.send_many(msgs)
+            for d, r in zip(devices, sent):
+                conn.execute(
+                    "INSERT INTO push_log(event_id, device_id, ok, detail, created_at) VALUES(?,?,?,?,?)",
+                    ("test", d["device_id"], 1 if r.ok else 0, r.detail, now_iso),
+                )
+                results.append({"device_id": d["device_id"], "ok": r.ok, "detail": r.detail})
+        return jsonify({"ok": True, "devices": len(results), "results": results})
 
     return app
