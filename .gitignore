@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+
+# Server runtime artifacts
+server/python/config.yaml
+server/python/workdir/
+**/index/db.sqlite
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Android build outputs (留给后续工程)
+android/build/
+android/.gradle/
+android/local.properties

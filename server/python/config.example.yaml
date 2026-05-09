@@ -1,0 +1,31 @@
+# 云端服务配置示例。复制为 config.yaml 后修改。
+# 所有路径建议使用绝对路径。
+server:
+  host: "127.0.0.1"
+  port: 8765
+  api_key: "change-me-please"
+
+memory_repo:
+  # 服务器端 clone 出来的 MemoryWorkdir 路径
+  workdir_path: "./workdir"
+  # 远端仓库地址（HTTPS 或 SSH）。HTTPS 模式下会用环境变量 GITHUB_TOKEN 注入到 url 进行无交互 push。
+  repo_url: "https://github.com/falling-feather/LING-AGENT-memory.git"
+  branch: "main"
+  git_author_name: "ling-assistant"
+  git_author_email: "ling-assistant@example.com"
+  # 推送时使用的 token。也可写死，但建议从环境变量 GITHUB_TOKEN 读取。
+  github_token_env: "GITHUB_TOKEN"
+
+scheduler:
+  # 心跳同步 Git 的间隔（小时）
+  sync_interval_hours: 4
+  # Scheduler 扫描提醒的间隔（秒）
+  poll_interval_seconds: 60
+  # 在 fire_at 之前几秒内就视为命中（避免抖动）
+  lookahead_seconds: 120
+  # 超期重复提醒间隔（分钟）
+  overdue_repeat_minutes: 240
+
+# 索引数据库路径（可与 workdir 同机；删了能重建）
+index:
+  db_path: "./workdir/index/db.sqlite"

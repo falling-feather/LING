@@ -1,0 +1,6 @@
+timezone: "Asia/Shanghai"
+sync_interval_hours: 4
+poll_interval_seconds: 60
+default_remind_offsets_minutes: [1440, 240, 60, 15]
+overdue_repeat_minutes: 240
+
