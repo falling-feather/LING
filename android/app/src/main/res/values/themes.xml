@@ -1,0 +1,7 @@
+<resources>
+    <!-- Compose Material3 主题；具体配色由 Kotlin 端 Theme.kt 决定，这里只给容器主题 -->
+    <style name="Theme.LING" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

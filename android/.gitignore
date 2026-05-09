@@ -1,0 +1,15 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+*.keystore
+*.jks
+# 注意：gradle-wrapper.jar 在标准 Android 工程里通常会入库；
+# 本仓库由 README 引导用户首次运行 `gradle wrapper --gradle-version 8.7` 生成。

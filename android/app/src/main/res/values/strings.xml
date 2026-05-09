@@ -1,0 +1,53 @@
+<resources>
+    <string name="app_name">LING</string>
+
+    <!-- 通用 -->
+    <string name="action_save">保存</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_retry">重试</string>
+    <string name="action_back">返回</string>
+
+    <!-- 导航 -->
+    <string name="nav_tasks">任务</string>
+    <string name="nav_capture">捕获</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- 任务列表 -->
+    <string name="tasks_title">任务</string>
+    <string name="tasks_empty">暂无任务\n在 tasks.yaml 中添加，或等服务端同步</string>
+    <string name="tasks_status_todo">待办</string>
+    <string name="tasks_status_done">完成</string>
+    <string name="tasks_status_doing">进行中</string>
+    <string name="tasks_no_deadline">无截止时间</string>
+    <string name="tasks_overdue">已超期</string>
+
+    <!-- 任务详情 -->
+    <string name="task_detail_title">任务详情</string>
+    <string name="task_action_complete">完成</string>
+    <string name="task_action_snooze">稍后提醒</string>
+    <string name="task_action_reschedule">重新设定</string>
+    <string name="task_snooze_15">15 分钟</string>
+    <string name="task_snooze_60">1 小时</string>
+    <string name="task_snooze_240">4 小时</string>
+
+    <!-- 捕获 -->
+    <string name="capture_title">快速捕获</string>
+    <string name="capture_hint">写一句话，自动保存到记忆仓库</string>
+    <string name="capture_submit">提交</string>
+    <string name="capture_done">已写入</string>
+
+    <!-- 设置 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_base_url">服务器地址</string>
+    <string name="settings_base_url_hint">http://192.168.1.x:8765</string>
+    <string name="settings_api_key">API Key</string>
+    <string name="settings_api_key_hint">与服务端 config.yaml 一致</string>
+    <string name="settings_poll_interval">后台轮询间隔（分钟，最小 15）</string>
+    <string name="settings_test_connection">测试连接</string>
+    <string name="settings_saved">已保存</string>
+
+    <!-- 通知 -->
+    <string name="notif_channel_reminders">任务提醒</string>
+    <string name="notif_channel_reminders_desc">接收来自服务端的任务到期提醒</string>
+    <string name="notif_overdue_prefix">已超期 · </string>
+</resources>
