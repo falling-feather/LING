@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.ling.client.R
 import app.ling.client.data.SettingsRepo
+import app.ling.client.fcm.FcmRegistrar
 import app.ling.client.net.LingClient
 import app.ling.client.work.WorkScheduler
 import kotlinx.coroutines.launch
@@ -112,6 +113,7 @@ fun SettingsScreen() {
                             )
                         }
                         WorkScheduler.scheduleOrUpdate(ctx)
+                        FcmRegistrar.register(ctx)
                         snackbar.showSnackbar(ctx.getString(R.string.settings_saved))
                     }
                 },

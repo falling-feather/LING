@@ -94,13 +94,38 @@ gradle wrapper --gradle-version 8.7
 4. 「捕获」页随便写一句，提交后服务端会 commit/push 到 `inbox/capture.md`
 5. 等到任务接近 deadline，App 后台轮询会触发系统通知；点通知进详情，点完成会写回 `tasks.yaml` 并 push
 
-### 已知约束（MVP-1）
+### FCM 推送（MVP-2）
 
-- 后台轮询周期最低 **15 分钟**（系统对 WorkManager 的硬性下限）。如果你需要 1–5 分钟级提醒：
-  - **方案 A（不推荐）**：前台服务，常驻通知 + 高耗电
-  - **方案 B（推荐，二期）**：服务端接 FCM，App 取消轮询直接收推送
-- 设备处于深度待机（Doze）时，轮询周期可能被系统拉长到 30 分钟+；这是 Android 的正常行为
-- 当前未做本地缓存（Room）：每次进入页面都向服务端拉取。在地铁等弱网下体验会差一些，二期再加
+App 现在同时支持两条通道：
+
+- **轮询（默认始终启用）**：WorkManager 每 ≥15 分钟拉一次 `/reminders/pending`，作为可靠 fallback
+- **FCM 推送（按需启用）**：服务端在 scheduler 触发新提醒时直接给 App 推送通知，秒级可达
+
+启用 FCM 步骤（一次性）：
+
+1. 在 [Firebase Console](https://console.firebase.google.com/) 创建项目，添加 Android 应用，包名填 `app.ling.client`
+2. 下载 `google-services.json`，放到 `android/app/` 目录
+3. 在 `android/build.gradle.kts` 顶层 `plugins {}` 末尾加 `id("com.google.gms.google-services") version "4.4.2" apply false`
+4. 在 `android/app/build.gradle.kts` 顶层 `plugins {}` 末尾加 `id("com.google.gms.google-services")`
+5. 服务端按 `server/python/README.md` 配置 `fcm.project_id` + `fcm.service_account` 即可
+
+> 没做这一步时 App 仍能正常工作，只是只有轮询通道。
+
+### 单元测试 / 仪器化测试
+
+```bash
+cd android
+./gradlew :app:testDebugUnitTest          # JVM 单元测试（OkHttp MockWebServer 测全部 HTTP API）
+./gradlew :app:connectedDebugAndroidTest  # 仪器化测试（需要连接的真机或模拟器）
+```
+
+CI 在每次 push 到 `android` 分支或 `android/**` 路径变更时自动跑。
+
+### 已知约束
+
+- 后台轮询周期最低 **15 分钟**；如果你需要秒级提醒，请按上文启用 FCM
+- 设备处于深度待机（Doze）时轮询周期会被系统拉长，但 FCM 不受影响
+- 当前未做本地缓存（Room）：每次进入页面都向服务端拉取。在地铁等弱网下体验会差一些，下期再加
 
 ### 设计参考
 

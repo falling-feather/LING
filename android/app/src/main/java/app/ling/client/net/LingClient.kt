@@ -3,10 +3,12 @@ package app.ling.client.net
 import app.ling.client.data.CaptureRequest
 import app.ling.client.data.GenericResponse
 import app.ling.client.data.LingSettings
+import app.ling.client.data.RegisterDeviceRequest
 import app.ling.client.data.ReminderEvent
 import app.ling.client.data.RescheduleRequest
 import app.ling.client.data.SnoozeRequest
 import app.ling.client.data.Task
+import app.ling.client.data.UnregisterDeviceRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -107,6 +109,18 @@ class LingClient(private val baseUrl: String, private val apiKey: String) {
 
     suspend fun capture(text: String): GenericResponse =
         postJson("/capture", CaptureRequest(text))
+
+    suspend fun registerDevice(
+        deviceId: String,
+        fcmToken: String,
+        label: String? = null,
+    ): GenericResponse = postJson(
+        "/devices/register",
+        RegisterDeviceRequest(deviceId = deviceId, fcmToken = fcmToken, label = label),
+    )
+
+    suspend fun unregisterDevice(deviceId: String): GenericResponse =
+        postJson("/devices/unregister", UnregisterDeviceRequest(deviceId))
 
     companion object {
         fun fromSettings(s: LingSettings): LingClient? =

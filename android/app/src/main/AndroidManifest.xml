@@ -43,6 +43,21 @@
             </intent-filter>
         </activity>
 
+        <!-- FCM 接收服务（需要 google-services.json 才会真正接收推送；
+             没有 JSON 时这个 service 仍会注册但不会被触发） -->
+        <service
+            android:name=".fcm.LingMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- FCM 通知默认通道 id -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="reminders" />
+
     </application>
 
 </manifest>

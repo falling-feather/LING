@@ -43,3 +43,16 @@ data class GenericResponse(
     @SerialName("git_sha") val gitSha: String? = null,
     val appended: String? = null,
 )
+
+@Serializable
+data class RegisterDeviceRequest(
+    @SerialName("device_id") val deviceId: String,
+    @SerialName("fcm_token") val fcmToken: String,
+    val platform: String = "android",
+    val label: String? = null,
+)
+
+@Serializable
+data class UnregisterDeviceRequest(
+    @SerialName("device_id") val deviceId: String,
+)

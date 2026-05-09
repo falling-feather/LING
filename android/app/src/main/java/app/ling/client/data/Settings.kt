@@ -15,6 +15,8 @@ data class LingSettings(
     val apiKey: String = "",
     val pollIntervalMinutes: Int = 15,
     val notificationsEnabled: Boolean = true,
+    val deviceId: String = "",
+    val lastRegisteredFcmToken: String = "",
 ) {
     val isConfigured: Boolean get() = baseUrl.isNotBlank() && apiKey.isNotBlank()
 }
@@ -26,6 +28,8 @@ object SettingsKeys {
     val API_KEY = stringPreferencesKey("api_key")
     val POLL_MIN = intPreferencesKey("poll_interval_minutes")
     val NOTIF_ENABLED = booleanPreferencesKey("notif_enabled")
+    val DEVICE_ID = stringPreferencesKey("device_id")
+    val LAST_FCM_TOKEN = stringPreferencesKey("last_fcm_token")
 }
 
 class SettingsRepo(private val context: Context) {
@@ -36,6 +40,8 @@ class SettingsRepo(private val context: Context) {
             apiKey = prefs[SettingsKeys.API_KEY].orEmpty().trim(),
             pollIntervalMinutes = prefs[SettingsKeys.POLL_MIN] ?: 15,
             notificationsEnabled = prefs[SettingsKeys.NOTIF_ENABLED] ?: true,
+            deviceId = prefs[SettingsKeys.DEVICE_ID].orEmpty(),
+            lastRegisteredFcmToken = prefs[SettingsKeys.LAST_FCM_TOKEN].orEmpty(),
         )
     }
 
@@ -46,12 +52,16 @@ class SettingsRepo(private val context: Context) {
                 apiKey = prefs[SettingsKeys.API_KEY].orEmpty(),
                 pollIntervalMinutes = prefs[SettingsKeys.POLL_MIN] ?: 15,
                 notificationsEnabled = prefs[SettingsKeys.NOTIF_ENABLED] ?: true,
+                deviceId = prefs[SettingsKeys.DEVICE_ID].orEmpty(),
+                lastRegisteredFcmToken = prefs[SettingsKeys.LAST_FCM_TOKEN].orEmpty(),
             )
             val next = transform(current)
             prefs[SettingsKeys.BASE_URL] = next.baseUrl.trim().trimEnd('/')
             prefs[SettingsKeys.API_KEY] = next.apiKey.trim()
             prefs[SettingsKeys.POLL_MIN] = next.pollIntervalMinutes.coerceAtLeast(15)
             prefs[SettingsKeys.NOTIF_ENABLED] = next.notificationsEnabled
+            prefs[SettingsKeys.DEVICE_ID] = next.deviceId
+            prefs[SettingsKeys.LAST_FCM_TOKEN] = next.lastRegisteredFcmToken
         }
     }
 }
