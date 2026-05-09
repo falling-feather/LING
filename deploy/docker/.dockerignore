@@ -1,0 +1,22 @@
+# Build context 是项目根目录；只让需要的文件进镜像
+**/.git
+**/.gitignore
+**/__pycache__
+**/*.pyc
+**/.venv
+**/.idea
+**/.vscode
+**/.DS_Store
+
+# 客户端源码不进 server 镜像
+android/
+
+# 文档与设计文件不需要进镜像（保留一份 README 即可）
+docs/
+memory_repo_template/
+
+# 服务器运行产物
+server/python/workdir/
+server/python/_smoke_workdir/
+server/python/config.yaml
+**/*.sqlite

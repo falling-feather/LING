@@ -1,0 +1,9 @@
+# Shell 脚本统一 LF，避免 Windows checkout 后变成 CRLF
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# Gradle wrapper 在 Linux 上要可执行
+gradlew     text eol=lf
+
+# 默认让 git 自动判断
+*           text=auto

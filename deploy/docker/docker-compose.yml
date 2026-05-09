@@ -1,0 +1,33 @@
+services:
+  ling-server:
+    build:
+      context: ../..              # 项目根目录
+      dockerfile: deploy/docker/Dockerfile
+    image: ling-server:latest
+    container_name: ling-server
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    env_file:
+      - .env                     # GITHUB_TOKEN 等机密
+    environment:
+      LING_CONFIG: /etc/ling/config.yaml
+      TZ: Asia/Shanghai
+    volumes:
+      # 把仓库根的 server/python/config.yaml 挂进容器（只读）
+      - ../../server/python/config.yaml:/etc/ling/config.yaml:ro
+      # 持久化 MemoryWorkdir（git clone 出来的内容 + SQLite 索引）
+      - ling_workdir:/data/workdir
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8765/healthz', timeout=3).status==200 else 1)"
+      interval: 60s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  ling_workdir:

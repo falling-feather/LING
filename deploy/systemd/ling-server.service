@@ -1,0 +1,39 @@
+[Unit]
+Description=LING memory/reminder server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ling
+Group=ling
+WorkingDirectory=/opt/ling/server/python
+
+# /etc/ling/ling.env 必须包含 GITHUB_TOKEN=...
+EnvironmentFile=/etc/ling/ling.env
+
+ExecStart=/opt/ling/.venv/bin/python -m ling_server.cli -c /opt/ling/server/python/config.yaml serve
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+# 安全加固
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+ReadWritePaths=/opt/ling/server/python/workdir /var/log/ling /etc/ling
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ling-server
+
+[Install]
+WantedBy=multi-user.target
