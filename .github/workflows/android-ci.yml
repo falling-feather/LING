@@ -29,21 +29,23 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
 
       - name: Generate Gradle wrapper
-        # 仓库不入库 wrapper.jar；用 setup-gradle 提供的 gradle 生成
+        # 仓库不入库 wrapper.jar；用 setup-gradle 提供的 gradle 8.7 生成
         run: gradle wrapper --gradle-version 8.7
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
       - name: Run unit tests (JVM)
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --stacktrace --no-configuration-cache
 
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: ./gradlew :app:assembleDebug --stacktrace --no-configuration-cache
 
       - name: Upload debug APK
         if: success()
